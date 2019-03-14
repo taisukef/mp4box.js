@@ -4010,6 +4010,7 @@ BoxParser.createFullBoxCtor("sidx", function(stream) {
 		ref.SAP_type = (tmp_32 >> 28) & 0x7;
 		ref.SAP_delta_time = tmp_32 & 0xFFFFFFF;
 	}
+	this.first_offset += stream.position;
 });
 
 // file:src/parsing/singleitemtypereference.js

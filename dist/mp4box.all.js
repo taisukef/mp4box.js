@@ -2314,7 +2314,7 @@ var BoxParser = {
 		if (parseMethod) BoxParser[type+"TrackGroupTypeBox"].prototype.parse = parseMethod;
 	},
 	createUUIDBox: function(uuid, isFullBox, isContainerBox, parseMethod) {
-		//BoxParser.UUIDs.push(uuid);
+		BoxParser.UUIDs.push(uuid);
 		BoxParser.UUIDBoxes[uuid] = function(size) {
 			if (isFullBox) {
 				BoxParser.FullBox.call(this, "uuid", size, uuid);
@@ -4578,7 +4578,15 @@ BoxParser.createFullBoxCtor("urn ", function(stream) {
 	}
 });
 
-// file:src/parsing/uuid/piff/piffPssh.js
+// file:src/parsing/uuid/piff/piffLsm.js
+BoxParser.createUUIDBox("a5d40b30e81411ddba2f0800200c9a66", true, false, function(stream) {
+    this.LiveServerManifest = stream.readString(this.size - this.hdr_size)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+});// file:src/parsing/uuid/piff/piffPssh.js
 BoxParser.createUUIDBox("d08a4f1810f34a82b6c832d8aba183d3", true, false, function(stream) {
 	this.system_id = BoxParser.parseHex16(stream);
 	var datasize = stream.readUint32();
@@ -4617,6 +4625,38 @@ BoxParser.createUUIDBox("8974dbce7be74c5184f97148f9882554", true, false, functio
 	this.default_AlgorithmID = stream.readUint24();
 	this.default_IV_size = stream.readUint8();
 	this.default_KID = BoxParser.parseHex16(stream);
+});// file:src/parsing/uuid/piff/piffTfrf.js
+BoxParser.createUUIDBox("d4807ef2ca3946958e5426cb9e46a79f", true, false, function(stream) {
+    this.fragment_count = stream.readUint8();
+    this.entries = [];
+
+    for (var i = 0; i < this.fragment_count; i++) {
+        var entry = {};
+        var absolute_time = 0;
+        var absolute_duration = 0;
+
+        if (this.version === 1) {
+            absolute_time = stream.readUint64();
+            absolute_duration = stream.readUint64();
+        } else {
+            absolute_time = stream.readUint32();
+            absolute_duration = stream.readUint32();
+        }
+
+        entry.absolute_time = absolute_time;
+        entry.absolute_duration = absolute_duration;
+
+        this.entries.push(entry);
+    }
+});// file:src/parsing/uuid/piff/piffTfxd.js
+BoxParser.createUUIDBox("6d1d9b0542d544e680e2141daff757b2", true, false, function(stream) {
+    if (this.version === 1) {
+       this.absolute_time = stream.readUint64();
+       this.duration = stream.readUint64();
+    } else {
+       this.absolute_time = stream.readUint32();
+       this.duration = stream.readUint32();
+    }
 });// file:src/parsing/vmhd.js
 BoxParser.createFullBoxCtor("vmhd", function(stream) {
 	this.graphicsmode = stream.readUint16();

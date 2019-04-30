@@ -2664,6 +2664,9 @@ BoxParser.createMediaSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_AUDIO, function
 
 // Sample entries inheriting from Audio and Video
 BoxParser.createSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_VISUAL, "avc1");
+BoxParser.createSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_VISUAL, "avc2");
+BoxParser.createSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_VISUAL, "avc3");
+BoxParser.createSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_VISUAL, "avc4");
 BoxParser.createSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_VISUAL, "av01");
 BoxParser.createSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_VISUAL, "hvc1");
 BoxParser.createSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_VISUAL, "hev1");
@@ -4744,7 +4747,10 @@ BoxParser.decimalToHex = function(d, padding) {
 	return hex;
 }
 
-BoxParser.avc1SampleEntry.prototype.getCodec = function() {
+BoxParser.avc1SampleEntry.prototype.getCodec =
+BoxParser.avc2SampleEntry.prototype.getCodec =
+BoxParser.avc3SampleEntry.prototype.getCodec =
+BoxParser.avc4SampleEntry.prototype.getCodec = function() {
 	var baseCodec = BoxParser.SampleEntry.prototype.getCodec.call(this);
 	if (this.avcC) {
 		return baseCodec+"."+BoxParser.decimalToHex(this.avcC.AVCProfileIndication)+
@@ -4755,6 +4761,7 @@ BoxParser.avc1SampleEntry.prototype.getCodec = function() {
 	}
 }
 
+BoxParser.hev1SampleEntry.prototype.getCodec =
 BoxParser.hvc1SampleEntry.prototype.getCodec = function() {
 	var i;
 	var baseCodec = BoxParser.SampleEntry.prototype.getCodec.call(this);

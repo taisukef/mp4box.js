@@ -2618,7 +2618,8 @@ BoxParser.SampleEntry.prototype.parse = function(stream) {
 }
 
 BoxParser.SampleEntry.prototype.parseDataAndRewind = function(stream) {
-	this.parse(stream);
+	this.parseHeader(stream);
+	this.data = stream.readUint8Array(this.size - this.hdr_size);
 	// restore the header size as if the sample entry header had not been parsed
 	this.hdr_size -= 8;
 	// rewinding
@@ -2689,43 +2690,6 @@ BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_SYSTEM, 	"e
 BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_TEXT, 		"enct");
 BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_METADATA, 	"encm");
 
-
-// file:src/parsing/CoLL.js
-BoxParser.createFullBoxCtor("CoLL", function(stream) {
-	this.maxCLL = stream.readUint16();
-    this.maxFALL = stream.readUint16();
-});
-
-// file:src/parsing/SmDm.js
-BoxParser.createFullBoxCtor("SmDm", function(stream) {
-	this.primaryRChromaticity_x = stream.readUint16();
-    this.primaryRChromaticity_y = stream.readUint16();
-    this.primaryGChromaticity_x = stream.readUint16();
-    this.primaryGChromaticity_y = stream.readUint16();
-    this.primaryBChromaticity_x = stream.readUint16();
-    this.primaryBChromaticity_y = stream.readUint16();
-    this.whitePointChromaticity_x = stream.readUint16();
-    this.whitePointChromaticity_y = stream.readUint16();
-    this.luminanceMax = stream.readUint32();
-    this.luminanceMin = stream.readUint32();
-});
-
-// file:src/parsing/TrackGroup.js
-BoxParser.TrackGroupTypeBox.prototype.parse = function(stream) {
-	this.parseFullHeader(stream);
-	this.track_group_id = stream.readUint32();
-}
-
-// file:src/parsing/TrakReference.js
-BoxParser.TrackReferenceTypeBox = function(type, size, hdr_size, start) {
-	BoxParser.Box.call(this, type, size);
-	this.hdr_size = hdr_size;
-	this.start = start;
-}
-BoxParser.TrackReferenceTypeBox.prototype = new BoxParser.Box();
-BoxParser.TrackReferenceTypeBox.prototype.parse = function(stream) {
-	this.track_ids = stream.readUint32Array((this.size-this.hdr_size)/4);
-}
 
 // file:src/parsing/av1C.js
 BoxParser.createBoxCtor("av1C", function(stream) {
@@ -2839,6 +2803,12 @@ BoxParser.createFullBoxCtor("co64", function(stream) {
 			this.chunk_offsets.push(stream.readUint64());
 		}
 	}
+});
+
+// file:src/parsing/CoLL.js
+BoxParser.createFullBoxCtor("CoLL", function(stream) {
+	this.maxCLL = stream.readUint16();
+    this.maxFALL = stream.readUint16();
 });
 
 // file:src/parsing/colr.js
@@ -4020,7 +3990,6 @@ BoxParser.createFullBoxCtor("sidx", function(stream) {
 		ref.SAP_type = (tmp_32 >> 28) & 0x7;
 		ref.SAP_delta_time = tmp_32 & 0xFFFFFFF;
 	}
-	this.first_offset += stream.position;
 });
 
 // file:src/parsing/singleitemtypereference.js
@@ -4054,6 +4023,20 @@ BoxParser.SingleItemTypeReferenceBoxLarge.prototype.parse = function(stream) {
 		this.references[i] = stream.readUint32();
 	}
 }
+
+// file:src/parsing/SmDm.js
+BoxParser.createFullBoxCtor("SmDm", function(stream) {
+	this.primaryRChromaticity_x = stream.readUint16();
+    this.primaryRChromaticity_y = stream.readUint16();
+    this.primaryGChromaticity_x = stream.readUint16();
+    this.primaryGChromaticity_y = stream.readUint16();
+    this.primaryBChromaticity_x = stream.readUint16();
+    this.primaryBChromaticity_y = stream.readUint16();
+    this.whitePointChromaticity_x = stream.readUint16();
+    this.whitePointChromaticity_y = stream.readUint16();
+    this.luminanceMax = stream.readUint32();
+    this.luminanceMin = stream.readUint32();
+});
 
 // file:src/parsing/smhd.js
 BoxParser.createFullBoxCtor("smhd", function(stream) {
@@ -4462,8 +4445,25 @@ BoxParser.createBoxCtor("tpyl", function(stream) {
 	this.bytessent = stream.readUint64();
 });
 
+// file:src/parsing/TrackGroup.js
+BoxParser.TrackGroupTypeBox.prototype.parse = function(stream) {
+	this.parseFullHeader(stream);
+	this.track_group_id = stream.readUint32();
+}
+
 // file:src/parsing/trackgroups/msrc.js
-BoxParser.createTrackGroupCtor("msrc");// file:src/parsing/tref.js
+BoxParser.createTrackGroupCtor("msrc");// file:src/parsing/TrakReference.js
+BoxParser.TrackReferenceTypeBox = function(type, size, hdr_size, start) {
+	BoxParser.Box.call(this, type, size);
+	this.hdr_size = hdr_size;
+	this.start = start;
+}
+BoxParser.TrackReferenceTypeBox.prototype = new BoxParser.Box();
+BoxParser.TrackReferenceTypeBox.prototype.parse = function(stream) {
+	this.track_ids = stream.readUint32Array((this.size-this.hdr_size)/4);
+}
+
+// file:src/parsing/tref.js
 BoxParser.trefBox.prototype.parse = function(stream) {
 	var ret;
 	var box;
@@ -6719,11 +6719,13 @@ ISOFile.prototype.addTrack = function (_options) {
 	var sample_description_entry = new BoxParser[options.type+"SampleEntry"]();
 	sample_description_entry.data_reference_index = 1;
 	var media_type = "";
-	for (var i = 0; i < BoxParser.sampleEntryCodes.length; i++) {
-		var code = BoxParser.sampleEntryCodes[i];
-		if (code.types.indexOf(options.type) > -1) {
-			media_type = code.prefix;
-			break;
+	for (var mediaType in BoxParser.sampleEntryCodes) {
+		var codes = BoxParser.sampleEntryCodes[mediaType];
+		for (var i = 0; i < codes.length; i++) {
+			if (codes.indexOf(options.type) > -1) {
+				media_type = mediaType;
+				break;
+			}
 		}
 	}
 	switch(media_type) {

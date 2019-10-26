@@ -4883,12 +4883,12 @@ BoxParser.av01SampleEntry.prototype.getCodec = function() {
 	var baseCodec = BoxParser.SampleEntry.prototype.getCodec.call(this);
 	var bitdepth;
 	if (this.av1C.seq_profile === 2 && this.av1C.high_bitdepth === 1) {
-		bitdepth = (this.av1C.twelve_bit === 1) ? 12 : 10;
+		bitdepth = (this.av1C.twelve_bit === 1) ? "12" : "10";
 	} else if ( this.av1C.seq_profile <= 2 ) {
-		bitdepth = (this.av1C.high_bitdepth === 1) ? 10 : 8;
+		bitdepth = (this.av1C.high_bitdepth === 1) ? "10" : "08";
 	}
 	// TODO need to parse the SH to find color config
-	return baseCodec+"."+this.av1C.seq_profile+"."+this.av1C.seq_level_idx_0+(this.av1C.seq_tier_0?"H":"M")+"."+bitdepth+"."+this.av1C.monochrome+"."+this.av1C.chroma_subsampling_x+""+this.av1C.chroma_subsampling_y+""+this.av1C.chroma_sample_position;
+	return baseCodec+"."+this.av1C.seq_profile+"."+this.av1C.seq_level_idx_0+(this.av1C.seq_tier_0?"H":"M")+"."+bitdepth;//+"."+this.av1C.monochrome+"."+this.av1C.chroma_subsampling_x+""+this.av1C.chroma_subsampling_y+""+this.av1C.chroma_sample_position;
 }
 
 
@@ -6778,6 +6778,11 @@ ISOFile.prototype.addTrack = function (_options) {
 	if (options.description) {
 		sample_description_entry.addBox(options.description);
 	}
+	if (options.description_boxes) {
+		options.description_boxes.forEach(function (b) {
+			sample_description_entry.addBox(b);
+		});
+	}
 	minf.add("dinf").add("dref").addEntry((new BoxParser["url Box"]()).set("flags", 0x1));
 	var stbl = minf.add("stbl");
 	stbl.add("stsd").addEntry(sample_description_entry);
@@ -7699,6 +7704,33 @@ ISOFile.prototype.getPrimaryItem = function() {
 		return null;
 	} else {
 		return this.getItem(this.meta.pitm.item_id);
+	}
+}
+
+ISOFile.prototype.itemToFragmentedTrackFile = function(_options) {
+	var options = _options || {};
+	var item = null;
+	if (options.itemId) {
+		item = this.getItem(options.itemId);
+	} else {
+		item = this.getPrimaryItem();
+	}
+	if (item == null) return null;
+
+	var file = new ISOFile();
+	file.discardMdatData = false;
+	// assuming the track type is the same as the item type
+	var trackOptions = { type: item.type, description_boxes: item.properties.boxes};
+	if (item.properties.ispe) {
+		trackOptions.width = item.properties.ispe.image_width;
+		trackOptions.height = item.properties.ispe.image_height;
+	}
+	var trackId = file.addTrack(trackOptions);
+	if (trackId) {
+		file.addSample(trackId, item.data);
+		return file;
+	} else {
+		return null;
 	}
 }
 

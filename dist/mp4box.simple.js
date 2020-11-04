@@ -644,7 +644,7 @@ BoxParser.Box.prototype.parseLanguage = function(stream) {
 BoxParser.createFullBoxCtor("emsg", function(stream) {
 	if (this.version == 1) {
 		this.timescale 					= stream.readUint32();
-		this.presentation_time_delta 	= stream.readUint64();
+		this.presentation_time 			= stream.readUint64();
 		this.event_duration			 	= stream.readUint32();
 		this.id 						= stream.readUint32();
 		this.scheme_id_uri 				= stream.readCString();

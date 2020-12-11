@@ -5477,7 +5477,9 @@ BoxParser.sttsBox.prototype.write = function(stream) {
 
 // file:src/writing/tfdt.js
 BoxParser.tfdtBox.prototype.write = function(stream) {
-	this.version = 0;
+	var UINT32_MAX = Math.pow(2, 32) - 1;
+	// use version 1 if baseMediaDecodeTime does not fit 32 bits
+	this.version = this.baseMediaDecodeTime > UINT32_MAX ? 1 : 0;
 	this.flags = 0;
 	this.size = 4;
 	if (this.version === 1) {
@@ -5487,7 +5489,7 @@ BoxParser.tfdtBox.prototype.write = function(stream) {
 	if (this.version === 1) {
 		stream.writeUint64(this.baseMediaDecodeTime);
 	} else {
-		stream.writeUint32(this.baseMediaDecodeTime); 
+		stream.writeUint32(this.baseMediaDecodeTime);
 	}
 }
 
@@ -6306,11 +6308,11 @@ ISOFile.prototype.processSamples = function(last) {
 				}
 				/* A fragment is created by sample, but the segment is the accumulation in the buffer of these fragments.
 				   It is flushed only as requested by the application (nb_samples) to avoid too many callbacks */
-				if (trak.nextSample % fragTrak.nb_samples === 0 || (last && trak.nextSample >= trak.samples.length)) {
+				if (trak.nextSample % fragTrak.nb_samples === 0 || (last || trak.nextSample >= trak.samples.length)) {
 					Log.info("ISOFile", "Sending fragmented data on track #"+fragTrak.id+" for samples ["+Math.max(0,trak.nextSample-fragTrak.nb_samples)+","+(trak.nextSample-1)+"]");
 					Log.info("ISOFile", "Sample data size in memory: "+this.getAllocatedSampleDataSize());
 					if (this.onSegment) {
-						this.onSegment(fragTrak.id, fragTrak.user, fragTrak.segmentStream.buffer, trak.nextSample, (last && trak.nextSample >= trak.samples.length));
+						this.onSegment(fragTrak.id, fragTrak.user, fragTrak.segmentStream.buffer, trak.nextSample, (last || trak.nextSample >= trak.samples.length));
 					}
 					/* force the creation of a new buffer */
 					fragTrak.segmentStream = null;
@@ -6852,7 +6854,7 @@ ISOFile.prototype.addSample = function (track_id, data, _options) {
 
 	this.processSamples();
 	
-	var moof = ISOFile.createSingleSampleMoof(sample);
+	var moof = this.createSingleSampleMoof(sample);
 	this.addBox(moof);
 	moof.computeSize();
 	/* adjusting the data_offset now that the moof size is known*/
@@ -6861,7 +6863,7 @@ ISOFile.prototype.addSample = function (track_id, data, _options) {
 	return sample;
 }
 
-ISOFile.createSingleSampleMoof = function(sample) {
+ISOFile.prototype.createSingleSampleMoof = function(sample) {
 	var moof = new BoxParser.moofBox();
 	moof.add("mfhd").set("sequence_number", this.nextMoofNumber);
 	this.nextMoofNumber++;
@@ -7402,43 +7404,48 @@ ISOFile.prototype.getSample = function(trak, sampleNum) {
 	}
 
 	/* The sample has only been partially fetched, we need to check in all buffers */
-	var index =	this.stream.findPosition(true, sample.offset + sample.alreadyRead, false);
-	if (index > -1) {
-		buffer = this.stream.buffers[index];
-		var lengthAfterStart = buffer.byteLength - (sample.offset + sample.alreadyRead - buffer.fileStart);
-		if (sample.size - sample.alreadyRead <= lengthAfterStart) {
-			/* the (rest of the) sample is entirely contained in this buffer */
+	while(true) {
+		var index =	this.stream.findPosition(true, sample.offset + sample.alreadyRead, false);
+		if (index > -1) {
+			buffer = this.stream.buffers[index];
+			var lengthAfterStart = buffer.byteLength - (sample.offset + sample.alreadyRead - buffer.fileStart);
+			if (sample.size - sample.alreadyRead <= lengthAfterStart) {
+				/* the (rest of the) sample is entirely contained in this buffer */
 
-			Log.debug("ISOFile","Getting sample #"+sampleNum+" data (alreadyRead: "+sample.alreadyRead+" offset: "+
-				(sample.offset+sample.alreadyRead - buffer.fileStart)+" read size: "+(sample.size - sample.alreadyRead)+" full size: "+sample.size+")");
+				Log.debug("ISOFile","Getting sample #"+sampleNum+" data (alreadyRead: "+sample.alreadyRead+" offset: "+
+					(sample.offset+sample.alreadyRead - buffer.fileStart)+" read size: "+(sample.size - sample.alreadyRead)+" full size: "+sample.size+")");
 
-			DataStream.memcpy(sample.data.buffer, sample.alreadyRead, 
-			                  buffer, sample.offset+sample.alreadyRead - buffer.fileStart, sample.size - sample.alreadyRead);
+				DataStream.memcpy(sample.data.buffer, sample.alreadyRead,
+				                  buffer, sample.offset+sample.alreadyRead - buffer.fileStart, sample.size - sample.alreadyRead);
 
-			/* update the number of bytes used in this buffer and check if it needs to be removed */
-			buffer.usedBytes += sample.size - sample.alreadyRead;
-			this.stream.logBufferLevel();
+				/* update the number of bytes used in this buffer and check if it needs to be removed */
+				buffer.usedBytes += sample.size - sample.alreadyRead;
+				this.stream.logBufferLevel();
 
-			sample.alreadyRead = sample.size;
+				sample.alreadyRead = sample.size;
 
-			return sample;
+				return sample;
+			} else {
+				/* the sample does not end in this buffer */
+
+				if (lengthAfterStart === 0) return null;
+
+				Log.debug("ISOFile","Getting sample #"+sampleNum+" partial data (alreadyRead: "+sample.alreadyRead+" offset: "+
+					(sample.offset+sample.alreadyRead - buffer.fileStart)+" read size: "+lengthAfterStart+" full size: "+sample.size+")");
+
+				DataStream.memcpy(sample.data.buffer, sample.alreadyRead,
+				                  buffer, sample.offset+sample.alreadyRead - buffer.fileStart, lengthAfterStart);
+				sample.alreadyRead += lengthAfterStart;
+
+				/* update the number of bytes used in this buffer and check if it needs to be removed */
+				buffer.usedBytes += lengthAfterStart;
+				this.stream.logBufferLevel();
+
+				/* keep looking in the next buffer */
+			}
 		} else {
-			/* the sample does not end in this buffer */				
-			
-			Log.debug("ISOFile","Getting sample #"+sampleNum+" partial data (alreadyRead: "+sample.alreadyRead+" offset: "+
-				(sample.offset+sample.alreadyRead - buffer.fileStart)+" read size: "+lengthAfterStart+" full size: "+sample.size+")");
-			
-			DataStream.memcpy(sample.data.buffer, sample.alreadyRead, 
-			                  buffer, sample.offset+sample.alreadyRead - buffer.fileStart, lengthAfterStart);
-			sample.alreadyRead += lengthAfterStart;
-
-			/* update the number of bytes used in this buffer and check if it needs to be removed */
-			buffer.usedBytes += lengthAfterStart;
-			this.stream.logBufferLevel();
 			return null;
 		}
-	} else {
-		return null;
 	}
 }
 
@@ -7773,7 +7780,7 @@ ISOFile.prototype.createFragment = function(track_id, sampleNumber, stream_) {
 	var stream = stream_ || new DataStream();
 	stream.endianness = DataStream.BIG_ENDIAN;
 
-	var moof = ISOFile.createSingleSampleMoof(sample);
+	var moof = this.createSingleSampleMoof(sample);
 	moof.write(stream);
 
 	/* adjusting the data_offset now that the moof size is known*/

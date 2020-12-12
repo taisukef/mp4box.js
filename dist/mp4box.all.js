@@ -144,14 +144,14 @@ MP4BoxStream.prototype.readAnyInt = function(size, signed) {
         if (signed) {
           res = this.dataview.getInt8(this.position);
         } else {
-          res = this.dataview.getUint8(this.position);          
+          res = this.dataview.getUint8(this.position);
         }
         break;
       case 2:
         if (signed) {
           res = this.dataview.getInt16(this.position);
         } else {
-          res = this.dataview.getUint16(this.position);          
+          res = this.dataview.getUint16(this.position);
         }
         break;
       case 3:
@@ -159,27 +159,27 @@ MP4BoxStream.prototype.readAnyInt = function(size, signed) {
           throw ("No method for reading signed 24 bits values");
         } else {
           res = this.dataview.getUint8(this.position) << 16;
-          res |= this.dataview.getUint8(this.position) << 8;
-          res |= this.dataview.getUint8(this.position);
+          res |= this.dataview.getUint8(this.position+1) << 8;
+          res |= this.dataview.getUint8(this.position+2);
         }
         break;
       case 4:
         if (signed) {
           res = this.dataview.getInt32(this.position);
         } else {
-          res = this.dataview.getUint32(this.position);          
+          res = this.dataview.getUint32(this.position);
         }
         break;
       case 8:
         if (signed) {
           throw ("No method for reading signed 64 bits values");
         } else {
-          res = this.dataview.getUint32(this.position) << 32;          
-          res |= this.dataview.getUint32(this.position);
+          res = this.dataview.getUint32(this.position) << 32;
+          res |= this.dataview.getUint32(this.position+4);
         }
         break;
       default:
-        throw ("readInt method not implemented for size: "+size);  
+        throw ("readInt method not implemented for size: "+size);
     }
     this.position+= size;
     return res;
@@ -1769,7 +1769,7 @@ MultiBufferStream.prototype.logBufferLevel = function(info) {
 	if (this.buffers.length === 0) {
 		log("MultiBufferStream", "No more buffer in memory");
 	} else {
-		log("MultiBufferStream", ""+this.buffers.length+" stored buffer(s) ("+used+"/"+total+" bytes): "+bufferedString);
+		log("MultiBufferStream", ""+this.buffers.length+" stored buffer(s) ("+used+"/"+total+" bytes), continuous ranges: "+bufferedString);
 	}
 }
 
@@ -6864,6 +6864,12 @@ ISOFile.prototype.addSample = function (track_id, data, _options) {
 }
 
 ISOFile.prototype.createSingleSampleMoof = function(sample) {
+	var sample_flags = 0;
+	if (sample.is_sync)
+		sample_flags = (1 << 25);  // sample_depends_on_none (I picture)
+	else
+		sample_flags = (1 << 16);  // non-sync
+
 	var moof = new BoxParser.moofBox();
 	moof.add("mfhd").set("sequence_number", this.nextMoofNumber);
 	this.nextMoofNumber++;
@@ -6879,7 +6885,7 @@ ISOFile.prototype.createSingleSampleMoof = function(sample) {
 					.set("sample_count",1)
 					.set("sample_duration",[sample.duration])
 					.set("sample_size",[sample.size])
-					.set("sample_flags",[0])
+					.set("sample_flags",[sample_flags])
 					.set("sample_composition_time_offset", [sample.cts - sample.dts]);
 	return moof;
 }

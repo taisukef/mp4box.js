@@ -2692,7 +2692,12 @@ BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_TEXT, 		"en
 BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_METADATA, 	"encm");
 
 
-// file:src/parsing/av1C.js
+// file:src/parsing/auxC.js
+BoxParser.createFullBoxCtor("auxC", function(stream) {
+	this.aux_type = stream.readCString();
+	var aux_subtype_length = this.size - this.hdr_size - (this.aux_type.length + 1);
+	this.aux_subtype = stream.readUint8Array(aux_subtype_length);
+});// file:src/parsing/av1C.js
 BoxParser.createBoxCtor("av1C", function(stream) {
 	var i;
 	var toparse;
@@ -3264,7 +3269,12 @@ BoxParser.createFullBoxCtor("iloc", function(stream) {
 	}
 });
 
-// file:src/parsing/infe.js
+// file:src/parsing/imir.js
+BoxParser.createBoxCtor("imir", function(stream) {
+	var tmp = stream.readUint8();
+	this.reserved = tmp >> 7;
+	this.axis = tmp & 1;
+});// file:src/parsing/infe.js
 BoxParser.createFullBoxCtor("infe", function(stream) {
 	if (this.version === 0 || this.version === 1) {
 		this.item_ID = stream.readUint16();

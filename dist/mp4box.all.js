@@ -2692,7 +2692,21 @@ BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_TEXT, 		"en
 BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_METADATA, 	"encm");
 
 
-// file:src/parsing/auxC.js
+// file:src/parsing/a1lx.js
+BoxParser.createFullBoxCtor("a1lx", function(stream) {
+	var FieldLength = ((this.flags & 1) + 1) * 16;
+	this.layer_size = [];
+	for (var i = 0; i < 4; i++) {
+		if (FieldLength == 16) {
+			this.layer_size[i] = stream.readUint16();
+		} else {
+			this.layer_size[i] = stream.readUint32();
+		}
+	}
+});// file:src/parsing/a1op.js
+BoxParser.createFullBoxCtor("a1op", function(stream) {
+	this.op_index = stream.readUint32();
+});// file:src/parsing/auxC.js
 BoxParser.createFullBoxCtor("auxC", function(stream) {
 	this.aux_type = stream.readCString();
 	var aux_subtype_length = this.size - this.hdr_size - (this.aux_type.length + 1);
@@ -3407,7 +3421,10 @@ BoxParser.createFullBoxCtor("leva", function(stream) {
 	}
 });
 
-// file:src/parsing/maxr.js
+// file:src/parsing/lsel.js
+BoxParser.createBoxCtor("lsel", function(stream) {
+	this.layer_id = stream.readUint16();
+});// file:src/parsing/maxr.js
 BoxParser.createBoxCtor("maxr", function(stream) {
 	this.period = stream.readUint32();
 	this.bytes = stream.readUint32();

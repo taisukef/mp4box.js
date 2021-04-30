@@ -2693,10 +2693,11 @@ BoxParser.createEncryptedSampleEntryCtor(BoxParser.SAMPLE_ENTRY_TYPE_METADATA, 	
 
 
 // file:src/parsing/a1lx.js
-BoxParser.createFullBoxCtor("a1lx", function(stream) {
-	var FieldLength = ((this.flags & 1) + 1) * 16;
+BoxParser.createBoxCtor("a1lx", function(stream) {
+	var large_size = stream.readUint8() & 1;
+	var FieldLength = ((large_size & 1) + 1) * 16;
 	this.layer_size = [];
-	for (var i = 0; i < 4; i++) {
+	for (var i = 0; i < 3; i++) {
 		if (FieldLength == 16) {
 			this.layer_size[i] = stream.readUint16();
 		} else {
@@ -2704,8 +2705,8 @@ BoxParser.createFullBoxCtor("a1lx", function(stream) {
 		}
 	}
 });// file:src/parsing/a1op.js
-BoxParser.createFullBoxCtor("a1op", function(stream) {
-	this.op_index = stream.readUint32();
+BoxParser.createBoxCtor("a1op", function(stream) {
+	this.op_index = stream.readUint8();
 });// file:src/parsing/auxC.js
 BoxParser.createFullBoxCtor("auxC", function(stream) {
 	this.aux_type = stream.readCString();

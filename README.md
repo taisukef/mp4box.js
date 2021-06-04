@@ -7,7 +7,7 @@ MP4Box.js
 [![Dependency Status](https://david-dm.org/gpac/mp4box.js.svg)](https://david-dm.org/gpac/mp4box.js)
 [![devDependency Status](https://david-dm.org/gpac/mp4box.js/dev-status.svg)](https://david-dm.org/gpac/mp4box.js#info=devDependencies)
 
-JavaScript library to process MP4 files in the browser (and in NodeJS), with support for progressive parsing. 
+JavaScript library to process MP4 files in the browser, Deno and NodeJS, with support for progressive parsing. 
 Inspired by the [MP4Box](http://gpac.wp.mines-telecom.fr/mp4box/) tool from the [GPAC](http://gpac.wp.mines-telecom.fr) project. 
 It can be used to:
 - [get information about an MP4 file](#getting-information), 
@@ -27,6 +27,15 @@ Demos
 
 API
 ===
+
+### simple usage
+
+```js
+import { MP4 } from "https://taisukef.github.io/mp4boxjs/MP4.js";
+const bin = Deno.readFileSync('screenshot.mp4');
+const size = await MP4.decodeSize(bin);
+console.log(size);
+```
 
 ### Getting Information ###
 Similar to `MP4Box -info file.mp4`, MP4Box.js can provide general information about the file (duration, number and types of tracks ...). For that, create an MP4Box ISOFile object, set the `onReady` callback and provide data in the form of ArrayBuffer objects. MP4Box.js supports progressive parsing. You can provide small buffers at a time, the callback will be called when the 'moov' box is parsed.

@@ -1,13 +1,1 @@
-.htaccess
-*.mp4
-*.raw
-*.hevc
-*.bpg
-*.xml
-node_modules/*
-dist/
-test/lib_*/
-test/coverage/
-test/mp4/
-test/ff-conformance/
-test/mp4-torrents/
+node_modules/
